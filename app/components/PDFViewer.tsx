@@ -190,7 +190,7 @@ export default function PDFViewer({ uploadedFile, signature, onSignaturePlace }:
           <button
             onClick={addSignatureField}
             disabled={isAddingField}
-            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${
+            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer ${
               isAddingField
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'

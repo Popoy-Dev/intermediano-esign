@@ -121,7 +121,7 @@ export default function Home() {
             <button
               onClick={handleStartSigning}
               disabled={!uploadedFile}
-              className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="cursor-pointer w-full bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               Start Signing Process
             </button>

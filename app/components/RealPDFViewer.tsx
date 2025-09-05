@@ -425,7 +425,7 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
           <button
             onClick={addSignatureField}
             disabled={isAddingField}
-            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${
+            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer ${
               isAddingField
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-red-600 text-white hover:bg-red-700'
@@ -438,7 +438,7 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
           {signatureFields.some(field => field.signature) && (
             <button
               onClick={downloadSignedPDF}
-              className="flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="cursor-pointer flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <Download className="w-4 h-4 mr-1" />
               Download Signed PDF

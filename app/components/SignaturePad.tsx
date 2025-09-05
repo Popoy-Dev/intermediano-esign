@@ -203,7 +203,7 @@ export default function SignaturePad({ onSignatureComplete }: SignaturePadProps)
         <div className="flex space-x-2">
           <button
             onClick={clearSignature}
-            className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            className="cursor-pointer flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <RotateCcw className="w-4 h-4 mr-1" />
             Clear
@@ -212,7 +212,7 @@ export default function SignaturePad({ onSignatureComplete }: SignaturePadProps)
           <button
             onClick={confirmSignature}
             disabled={isConfirmed}
-            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${
+            className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer ${
               isConfirmed
                 ? 'bg-green-600 text-white cursor-not-allowed'
                 : 'bg-red-600 text-white hover:bg-red-700'
