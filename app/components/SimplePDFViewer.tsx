@@ -120,9 +120,11 @@ export default function SimplePDFViewer({ uploadedFile, signature, onSignaturePl
         if (yPosition < 200) {
           try {
             // Convert data URL to base64
-            const base64Data = field.signature.split(',')[1];
-            pdf.addImage(base64Data, 'PNG', 20, yPosition, 100, 40);
-            yPosition += 50;
+            const base64Data = field.signature?.split(',')[1];
+            if (base64Data) {
+              pdf.addImage(base64Data, 'PNG', 20, yPosition, 100, 40);
+              yPosition += 50;
+            }
           } catch (error) {
             pdf.text('Signature image could not be embedded', 20, yPosition);
             yPosition += 10;

@@ -94,15 +94,19 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
         console.warn('Worker failed, trying without worker:', workerError);
         
         try {
-          // Try without worker
+          // Try without worker by setting workerSrc to null
+          const originalWorkerSrc = pdfjsLib.GlobalWorkerOptions.workerSrc;
+          pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+          
+          // Use minimal options for fallback loading
           loadOptions = { 
-            data: arrayBuffer, 
-            disableWorker: true,
-            disableAutoFetch: true,
-            disableStream: true
+            data: arrayBuffer
           };
           pdf = await pdfjsLib.getDocument(loadOptions).promise;
           console.log('PDF loaded successfully without worker');
+          
+          // Restore original worker source
+          pdfjsLib.GlobalWorkerOptions.workerSrc = originalWorkerSrc;
         } catch (noWorkerError) {
           console.error('Failed to load PDF even without worker:', noWorkerError);
           throw new Error('PDF loading failed. The file might be corrupted or unsupported.');
@@ -114,7 +118,8 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
       setCurrentPage(1);
     } catch (err) {
       console.error('Error loading PDF:', err);
-      setError(`Failed to load PDF: ${err.message || 'Unknown error'}. Please use the simple signing method below.`);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to load PDF: ${errorMessage}. Please use the simple signing method below.`);
     } finally {
       setIsLoading(false);
     }
@@ -300,7 +305,7 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
             });
             
             // Get the display viewport to calculate scaling
-            const displayViewport = await pdfDocument.getPage(pageNum).then(page => {
+            const displayViewport = await pdfDocument.getPage(pageNum).then((page: any) => {
               const containerWidth = containerRef.current?.clientWidth || 600;
               const displayScale = Math.min(containerWidth / page.view[2], 1.5);
               return page.getViewport({ scale: displayScale });
