@@ -256,8 +256,13 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
       // Dynamically import jsPDF
       const { jsPDF } = await import('jspdf');
       
-      // Create a new PDF document
-      const pdf = new jsPDF();
+      // Create a new PDF document with compression
+      const pdf = new jsPDF({
+        compress: true,
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
       
       // Get the display canvas dimensions for scaling calculations
       const displayCanvas = canvasRef.current;
@@ -271,7 +276,7 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
       // Process each page
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
         const page = await pdfDocument.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better quality
+        const viewport = page.getViewport({ scale: 1.0 }); // Reduced scale to prevent file size explosion
         
         // Create canvas for this page
         const canvas = document.createElement('canvas');
@@ -332,8 +337,11 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
           }
         }
         
-        // Convert canvas to image data
-        const imgData = canvas.toDataURL('image/png');
+        // Convert canvas to image data with compression
+        // Use lower quality for larger original files to prevent massive output files
+        const originalSizeMB = uploadedFile.size / (1024 * 1024);
+        const quality = originalSizeMB > 1 ? 0.6 : 0.8; // Lower quality for files > 1MB
+        const imgData = canvas.toDataURL('image/jpeg', quality);
         
         // Add page to PDF (except first page which is created automatically)
         if (pageNum > 1) {
@@ -344,7 +352,7 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
         const imgWidth = pdf.internal.pageSize.getWidth();
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
       }
       
       // Download the PDF

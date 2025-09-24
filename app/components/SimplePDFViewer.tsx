@@ -119,10 +119,22 @@ export default function SimplePDFViewer({ uploadedFile, signature, onSignaturePl
         // Add signature image if it fits on the page
         if (yPosition < 200) {
           try {
-            // Convert data URL to base64
+            // Convert data URL to base64 with compression
             const base64Data = field.signature?.split(',')[1];
-            if (base64Data) {
-              pdf.addImage(base64Data, 'PNG', 20, yPosition, 100, 40);
+            if (base64Data && field.signature) {
+              // Convert PNG to JPEG for smaller file size
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              const img = new Image();
+              img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx?.drawImage(img, 0, 0);
+                const compressedData = canvas.toDataURL('image/jpeg', 0.8);
+                const compressedBase64 = compressedData.split(',')[1];
+                pdf.addImage(compressedBase64, 'JPEG', 20, yPosition, 100, 40);
+              };
+              img.src = field.signature; // Now TypeScript knows field.signature is defined
               yPosition += 50;
             }
           } catch (error) {
