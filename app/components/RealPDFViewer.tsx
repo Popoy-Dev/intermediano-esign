@@ -322,7 +322,14 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
       
       // Save the modified PDF - this preserves original text quality!
       const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      // Convert to ArrayBuffer to ensure type compatibility
+      const arrayBuffer = pdfBytes.buffer instanceof ArrayBuffer 
+        ? pdfBytes.buffer 
+        : new ArrayBuffer(pdfBytes.length);
+      if (!(pdfBytes.buffer instanceof ArrayBuffer)) {
+        new Uint8Array(arrayBuffer).set(pdfBytes);
+      }
+      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
       // Create download link
