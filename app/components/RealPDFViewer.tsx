@@ -253,110 +253,86 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
     if (!pdfDocument || !uploadedFile) return;
 
     try {
-      // Dynamically import jsPDF
-      const { jsPDF } = await import('jspdf');
+      // Use PDF-lib for proper PDF manipulation that preserves text quality
+      const { PDFDocument } = await import('pdf-lib');
       
-      // Create a new PDF document with compression
-      const pdf = new jsPDF({
-        compress: true,
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
+      // Load the original PDF - this preserves all text and formatting!
+      const existingPdfBytes = await uploadedFile.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
-      // Get the display canvas dimensions for scaling calculations
-      const displayCanvas = canvasRef.current;
-      if (!displayCanvas) {
-        throw new Error('Display canvas not found');
-      }
-      
-      const displayWidth = displayCanvas.width;
-      const displayHeight = displayCanvas.height;
+      // Get all pages
+      const pages = pdfDoc.getPages();
       
       // Process each page
-      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-        const page = await pdfDocument.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 1.0 }); // Reduced scale to prevent file size explosion
+      for (let pageNum = 0; pageNum < pages.length; pageNum++) {
+        const page = pages[pageNum];
+        const pageFields = signatureFields.filter(field => field.pageNumber === pageNum + 1);
         
-        // Create canvas for this page
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        console.log(`Processing page ${pageNum + 1}, found ${pageFields.length} signature fields`);
         
-        if (!context) continue;
-        
-        // Render PDF page
-        await page.render({
-          canvasContext: context,
-          viewport: viewport
-        }).promise;
-        
-        // Add signatures for this page only
-        const pageFields = signatureFields.filter(field => field.pageNumber === pageNum);
-        console.log(`Processing page ${pageNum}, found ${pageFields.length} signature fields`);
-        
+        // Add signatures to this page
         for (const field of pageFields) {
           if (field.signature) {
-            console.log(`Adding signature to page ${pageNum} at position (${field.x}, ${field.y})`);
+            console.log(`Adding signature to page ${pageNum + 1} at position (${field.x}, ${field.y})`);
             
-            // Create image from signature data URL
-            const signatureImg = new Image();
-            signatureImg.src = field.signature;
-            
-            // Wait for image to load
-            await new Promise((resolve) => {
-              signatureImg.onload = resolve;
-            });
-            
-            // Get the display viewport to calculate scaling
-            const displayViewport = await pdfDocument.getPage(pageNum).then((page: any) => {
-              const containerWidth = containerRef.current?.clientWidth || 600;
-              const displayScale = Math.min(containerWidth / page.view[2], 1.5);
-              return page.getViewport({ scale: displayScale });
-            });
-            
-            // Scale coordinates from display viewport to PDF generation viewport (2.0x scale)
-            const scaleX = canvas.width / displayViewport.width;
-            const scaleY = canvas.height / displayViewport.height;
-            
-            const pdfGenX = field.x * scaleX;
-            const pdfGenY = field.y * scaleY;
-            const pdfGenWidth = field.width * scaleX;
-            const pdfGenHeight = field.height * scaleY;
-            
-            console.log(`Scaled position: (${pdfGenX}, ${pdfGenY}) with size (${pdfGenWidth}, ${pdfGenHeight})`);
-            
-            context.drawImage(
-              signatureImg,
-              pdfGenX,
-              pdfGenY,
-              pdfGenWidth,
-              pdfGenHeight
-            );
+            try {
+              // Convert signature to PNG bytes for better quality
+              const signatureDataUrl = field.signature;
+              const base64Data = signatureDataUrl.split(',')[1];
+              const signatureBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+              
+              // Embed the signature image
+              const signatureImage = await pdfDoc.embedPng(signatureBytes);
+              
+              // Get page dimensions for scaling
+              const { width: pageWidth, height: pageHeight } = page.getSize();
+              const displayCanvas = canvasRef.current;
+              
+              if (displayCanvas) {
+                // Calculate scaling from display to PDF coordinates
+                const displayWidth = displayCanvas.width;
+                const displayHeight = displayCanvas.height;
+                
+                const scaleX = pageWidth / displayWidth;
+                const scaleY = pageHeight / displayHeight;
+                
+                // Scale signature position and size
+                const pdfX = field.x * scaleX;
+                const pdfY = pageHeight - (field.y * scaleY) - (field.height * scaleY); // Flip Y coordinate
+                const pdfWidth = field.width * scaleX;
+                const pdfHeight = field.height * scaleY;
+                
+                console.log(`PDF coordinates: (${pdfX}, ${pdfY}) with size (${pdfWidth}, ${pdfHeight})`);
+                
+                // Draw signature on PDF page - this preserves the original text!
+                page.drawImage(signatureImage, {
+                  x: pdfX,
+                  y: pdfY,
+                  width: pdfWidth,
+                  height: pdfHeight,
+                });
+              }
+            } catch (signatureError) {
+              console.error('Error adding signature:', signatureError);
+              // Continue with other signatures even if one fails
+            }
           }
         }
-        
-        // Convert canvas to image data with compression
-        // Use lower quality for larger original files to prevent massive output files
-        const originalSizeMB = uploadedFile.size / (1024 * 1024);
-        const quality = originalSizeMB > 1 ? 0.6 : 0.8; // Lower quality for files > 1MB
-        const imgData = canvas.toDataURL('image/jpeg', quality);
-        
-        // Add page to PDF (except first page which is created automatically)
-        if (pageNum > 1) {
-          pdf.addPage();
-        }
-        
-        // Add image to PDF page
-        const imgWidth = pdf.internal.pageSize.getWidth();
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
       }
       
-      // Download the PDF
-      pdf.save(`signed-${uploadedFile.name.replace('.pdf', '')}.pdf`);
+      // Save the modified PDF - this preserves original text quality!
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `signed-${uploadedFile.name.replace('.pdf', '')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
     } catch (error) {
       console.error('Error creating signed PDF:', error);
