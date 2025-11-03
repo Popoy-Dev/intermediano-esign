@@ -20,10 +20,9 @@ export default function FileUpload({ onFileSelect, selectedFile }: FileUploadPro
       return;
     }
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 20 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('File size must be less than 10MB.');
+      alert('File size must be less than 20MB.');
       return;
     }
 
@@ -97,7 +96,7 @@ export default function FileUpload({ onFileSelect, selectedFile }: FileUploadPro
                 Drag and drop your file here, or click to browse
               </p>
               <p className="text-sm text-gray-500">
-                Supports PDF, JPEG, PNG files up to 10MB
+                Supports PDF, JPEG, PNG files up to 20MB
               </p>
             </div>
 

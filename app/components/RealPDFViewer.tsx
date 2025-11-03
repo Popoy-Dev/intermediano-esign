@@ -38,17 +38,18 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
         try {
           const pdfjs = await import('pdfjs-dist');
           
-          // Use local worker file first, then fallback to CDN
+
+          const workerVersion = pdfjs.version || '4.4.168';
+          
           const workerSources = [
-            // Local worker from public directory
-            `/pdfjs/pdf.worker.min.js`,
-            // CDN sources as fallback
-            `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`,
-            `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+            `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`,
+            `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.js`,
+            `https://cdn.jsdelivr.net/npm/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`,
+            `/pdfjs/pdf.worker.min.js`
           ];
           
-          // Set the local worker source
           pdfjs.GlobalWorkerOptions.workerSrc = workerSources[0];
+          console.log(`PDF.js worker set to: ${workerSources[0]}`);
           
           setPdfjsLib(pdfjs);
         } catch (err) {
@@ -81,45 +82,62 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
 
     try {
       const arrayBuffer = await uploadedFile.arrayBuffer();
+      console.log(`Loading PDF: ${uploadedFile.name}, Size: ${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB`);
       
-      // Try to load PDF with different configurations
       let pdf;
-      let loadOptions = { data: arrayBuffer };
+      const loadOptions: any = { 
+        data: arrayBuffer,
+        useSystemFonts: true,
+        disableFontFace: false,
+        verbosity: 0
+      };
       
       try {
-        // First try with worker
         pdf = await pdfjsLib.getDocument(loadOptions).promise;
-        console.log('PDF loaded successfully with worker');
-      } catch (workerError) {
-        console.warn('Worker failed, trying without worker:', workerError);
+        console.log('PDF loaded successfully');
+      } catch (loadError: any) {
+        console.error('PDF loading error details:', {
+          name: loadError?.name,
+          message: loadError?.message,
+          stack: loadError?.stack
+        });
         
         try {
-          // Try without worker by setting workerSrc to null
-          const originalWorkerSrc = pdfjsLib.GlobalWorkerOptions.workerSrc;
-          pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+          console.log('Attempting fallback with minimal options...');
+          pdf = await pdfjsLib.getDocument({ 
+            data: arrayBuffer,
+            verbosity: 0
+          }).promise;
+          console.log('PDF loaded with fallback options');
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError);
           
-          // Use minimal options for fallback loading
-          loadOptions = { 
-            data: arrayBuffer
-          };
-          pdf = await pdfjsLib.getDocument(loadOptions).promise;
-          console.log('PDF loaded successfully without worker');
+          const errorMsg = loadError?.message || 'Unknown error';
           
-          // Restore original worker source
-          pdfjsLib.GlobalWorkerOptions.workerSrc = originalWorkerSrc;
-        } catch (noWorkerError) {
-          console.error('Failed to load PDF even without worker:', noWorkerError);
-          throw new Error('PDF loading failed. The file might be corrupted or unsupported.');
+          if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+            throw new Error('This PDF is password protected. Please unlock it first.');
+          } else if (errorMsg.includes('corrupted')) {
+            throw new Error('The PDF file appears to be corrupted.');
+          } else if (errorMsg.includes('Invalid PDF')) {
+            throw new Error('Invalid PDF format. The file might not be a valid PDF.');
+          } else {
+            throw new Error(`PDF loading failed: ${errorMsg}`);
+          }
         }
+      }
+      
+      if (!pdf) {
+        throw new Error('Failed to load PDF document.');
       }
       
       setPdfDocument(pdf);
       setTotalPages(pdf.numPages);
       setCurrentPage(1);
+      console.log(`PDF loaded: ${pdf.numPages} page(s)`);
     } catch (err) {
       console.error('Error loading PDF:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Failed to load PDF: ${errorMessage}. Please use the simple signing method below.`);
+      setError(`Failed to load PDF: ${errorMessage}. Please try a different file or use the simple signing method below.`);
     } finally {
       setIsLoading(false);
     }
@@ -396,9 +414,9 @@ export default function RealPDFViewer({ uploadedFile, signature, onSignaturePlac
           >
             Try Again
           </button>
-          <p className="text-sm text-red-600">
+          {/* <p className="text-sm text-red-600">
             If this continues to fail, please use the simple signing method below.
-          </p>
+          </p> */}
         </div>
       </div>
     );
